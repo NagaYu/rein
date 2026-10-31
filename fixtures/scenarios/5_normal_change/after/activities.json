@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "event_type": "update_ad_set_budget",
+      "translated_event_type": "update ad set budget",
+      "event_time": "2026-10-27T13:00:00+0900",
+      "object_id": "120000000000000201",
+      "object_type": "CAMPAIGN",
+      "actor_id": "990000000000555",
+      "actor_name": "担当者A (fictional)",
+      "application_id": "900000000000001",
+      "application_name": "Ads Manager (fixture label)",
+      "extra_data": "{\"old_value\": 5000, \"new_value\": 8000}"
+    }
+  ]
+}

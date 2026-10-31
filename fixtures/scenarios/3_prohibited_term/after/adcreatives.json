@@ -1,0 +1,95 @@
+{
+  "data": [
+    {
+      "id": "120000000000000401",
+      "name": "栗デニッシュ_v1",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000009",
+        "link_data": {
+          "link": "https://shop.example.com/autumn/marron",
+          "message": "秋限定、栗のデニッシュ。毎朝焼きたてをお届けします。",
+          "name": "栗のデニッシュ",
+          "description": "Example Bakery（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          }
+        }
+      }
+    },
+    {
+      "id": "120000000000000402",
+      "name": "さつまいも_v1",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000009",
+        "link_data": {
+          "link": "https://shop.example.com/autumn/satsumaimo",
+          "message": "ほくほくのさつまいもを練り込んだ秋のパン。",
+          "name": "さつまいもブレッド",
+          "description": "Example Bakery（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          }
+        }
+      }
+    },
+    {
+      "id": "120000000000000403",
+      "name": "栗デニッシュ_関西_v1",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000009",
+        "link_data": {
+          "link": "https://shop.example.com/autumn/marron?area=kansai",
+          "message": "関西のお店でも、秋限定の栗デニッシュ。",
+          "name": "栗のデニッシュ",
+          "description": "Example Bakery（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          }
+        }
+      }
+    },
+    {
+      "id": "120000000000000404",
+      "name": "定番食パン_v1",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000009",
+        "link_data": {
+          "link": "https://shop.example.com/classic/shokupan",
+          "message": "いつもの食パン、まとめ買いがお得です。",
+          "name": "定番の食パン",
+          "description": "Example Bakery（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          }
+        }
+      }
+    },
+    {
+      "id": "120000000000000406",
+      "name": "栗デニッシュ_関西_auto",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000009",
+        "link_data": {
+          "link": "https://shop.example.com/autumn/marron?area=kansai",
+          "message": "【ｎｏ．１】食べるだけで絶対やせる栗デニッシュ。",
+          "name": "栗のデニッシュ",
+          "description": "Example Bakery（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          }
+        }
+      }
+    }
+  ],
+  "paging": {
+    "cursors": {
+      "before": "fixture",
+      "after": "fixture"
+    }
+  }
+}

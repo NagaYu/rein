@@ -1,0 +1,46 @@
+{
+  "data": [
+    {
+      "id": "130000000000000301",
+      "name": "栗デニッシュ_静止画",
+      "adset_id": "130000000000000201",
+      "campaign_id": "130000000000000101",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "creative": {
+        "id": "130000000000000401"
+      },
+      "updated_time": "2026-10-20T10:00:00+0900"
+    },
+    {
+      "id": "130000000000000302",
+      "name": "さつまいもブレッド_静止画",
+      "adset_id": "130000000000000201",
+      "campaign_id": "130000000000000101",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "creative": {
+        "id": "130000000000000402"
+      },
+      "updated_time": "2026-10-20T10:00:00+0900"
+    },
+    {
+      "id": "130000000000000303",
+      "name": "うるおいドリンク_静止画",
+      "adset_id": "130000000000000202",
+      "campaign_id": "130000000000000102",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "creative": {
+        "id": "130000000000000403"
+      },
+      "updated_time": "2026-10-20T10:00:00+0900"
+    }
+  ],
+  "paging": {
+    "cursors": {
+      "before": "fixture",
+      "after": "fixture"
+    }
+  }
+}

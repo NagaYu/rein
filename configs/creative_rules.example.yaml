@@ -1,0 +1,85 @@
+# Rein Creative Check rules (Phase 3) — a small starter set for the fictional fixtures.
+#
+# This is NOT a legal compliance judgement. It is material for deciding what a person reviews first.
+# The lists below are deliberately small. They are NOT a comprehensive legal list; checks under
+# Japanese advertising, pharmaceutical, health-promotion and financial-instruments law need a professional.
+#
+# All matching is done on NFKC-normalized, case-folded text (full-width = half-width), the same
+# normalization as Phase 1 prohibited_terms. Only what is declared here is found: a claim that is
+# reworded so that no pattern matches is NOT detected.
+version: 1
+
+# Creative fields (Phase 1 normalized `resolved.*`) searched for claims, terms and brand rules.
+text_fields: [message, headline, description]
+
+# Claim extraction. `pattern` is a Python regular expression applied to the normalized text.
+# kinds: numeric | price | superlative | guarantee | efficacy | limited_time
+claim_patterns:
+  - id: numeric-percent
+    kind: numeric
+    pattern: '\d+(?:\.\d+)?\s*%\s*(?:アップ|up|増|向上|改善|off|オフ|削減|カット)?'
+  - id: numeric-multiplier
+    kind: numeric
+    pattern: '\d+(?:\.\d+)?\s*倍'
+  - id: price-yen
+    kind: price
+    pattern: '\d[\d,]*\s*円'
+  - id: price-free-or-half
+    kind: price
+    pattern: '半額|無料'
+  - id: superlative
+    kind: superlative
+    pattern: 'no\.?\s*1|ナンバーワン|日本一|世界一|業界一|地域一番|最高級|最安'
+  - id: guarantee
+    kind: guarantee
+    pattern: '保証|必ず|確実に|絶対'
+  - id: efficacy
+    kind: efficacy
+    pattern: '痩せ|やせる|やせた|美白|シミが消え|若返|治る|治す'
+  - id: limited-time
+    kind: limited_time
+    pattern: '期間限定|今だけ|本日限り|先着\s*\d+\s*名'
+
+# Prohibited expressions by business category. `categories: ["*"]` applies to every creative.
+# Categories come from the creative / ad set / campaign attributes (see fixtures/creative/attributes.json).
+prohibited:
+  - id: banned-absolute
+    categories: ["*"]
+    terms: ["絶対", "guaranteed"]
+    severity: critical
+  - id: health-efficacy-guarantee
+    categories: [health_beauty]
+    terms: ["必ず痩せる", "必ずやせる", "効果を保証", "完治", "副作用なし"]
+    severity: critical
+  - id: finance-return-guarantee
+    categories: [finance]
+    terms: ["元本保証", "必ず儲かる", "確実に儲かる", "損をしない"]
+    severity: critical
+
+# Claims of these kinds need a substantiation note on the original. Without one: `severity`.
+# With a matching note: `substantiated_severity` (the detection stays visible, scored lower).
+substantiation:
+  claim_kinds: [numeric, superlative, efficacy]
+  severity: major
+  substantiated_severity: info
+
+# Brand rules, keyed by brand. Brands come from the same attributes as categories.
+brands:
+  example_bakery:
+    required_phrases: ["※写真はイメージです"]
+    banned_words: ["訳あり", "激安"]
+  example_wellness:
+    required_phrases: ["※個人の感想です"]
+    banned_words: ["医薬品"]
+
+# Differences from the original. The landing link is always the most important difference.
+diff:
+  link: critical
+  default: minor
+
+# Score = sum of detection weights, capped at `max`. Bands: score >= high -> high,
+# score >= medium -> medium, otherwise low. Thresholds are inclusive.
+scoring:
+  weights: {critical: 50, major: 20, minor: 5, info: 0}
+  bands: {medium: 25, high: 50}
+  max: 100

@@ -1,0 +1,36 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The only network use is installing dependencies. Tests and demos run on fixtures and mocks:
+      # no Meta API, no Ads MCP, no token (REIN_META_ACCESS_TOKEN is deliberately unset).
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -e .
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: Demos
+        run: |
+          python scripts/demo_all.py
+          python scripts/demo.py
+          python scripts/demo_proxy.py
+          python scripts/demo_evidence.py

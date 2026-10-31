@@ -1,0 +1,40 @@
+{
+  "data": [
+    {
+      "event_type": "update_campaign_budget",
+      "translated_event_type": "update campaign budget",
+      "event_time": "2026-10-27T15:00:00+0900",
+      "object_id": "120000000000000102",
+      "object_type": "CAMPAIGN_GROUP",
+      "actor_id": "990000000000777",
+      "actor_name": "Example Optimizer Bot (fictional)",
+      "application_id": "900000000000002",
+      "application_name": "Example AI Optimizer (fictional third-party)",
+      "extra_data": "{\"old_value\": 30000, \"new_value\": 70000}"
+    },
+    {
+      "event_type": "update_ad_set_run_status",
+      "translated_event_type": "update ad set run status",
+      "event_time": "2026-10-28T03:12:00+0900",
+      "object_id": "120000000000000203",
+      "object_type": "CAMPAIGN",
+      "actor_id": "990000000000555",
+      "actor_name": "担当者A (fictional)",
+      "application_id": "900000000000001",
+      "application_name": "Ads Manager (fixture label)",
+      "extra_data": "{\"old_value\": \"ACTIVE\", \"new_value\": \"PAUSED\"}"
+    },
+    {
+      "event_type": "update_ad_creative",
+      "translated_event_type": "update ad creative",
+      "event_time": "2026-10-27T16:20:00+0900",
+      "object_id": "120000000000000303",
+      "object_type": "ADGROUP",
+      "actor_id": "990000000000888",
+      "actor_name": "Meta (fixture label)",
+      "application_id": "900000000000003",
+      "application_name": "Advantage+ creative (fixture label)",
+      "extra_data": "{}"
+    }
+  ]
+}

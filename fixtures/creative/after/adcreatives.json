@@ -1,0 +1,118 @@
+{
+  "data": [
+    {
+      "id": "130000000000000401",
+      "name": "栗デニッシュ_v1",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000019",
+        "link_data": {
+          "link": "https://shop.example.com/autumn/marron",
+          "message": "秋限定、栗のデニッシュ。毎朝焼きたてをお届けします。※写真はイメージです。",
+          "name": "栗のデニッシュ",
+          "description": "Example Bakery（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          },
+          "image_hash": "fixtureimg0401"
+        }
+      }
+    },
+    {
+      "id": "130000000000000402",
+      "name": "さつまいも_v1",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000019",
+        "link_data": {
+          "link": "https://shop.example.com/autumn/satsumaimo",
+          "message": "ほくほくのさつまいもを練り込んだ秋のパン。※写真はイメージです。",
+          "name": "さつまいもブレッド",
+          "description": "Example Bakery（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          },
+          "image_hash": "fixtureimg0402"
+        }
+      }
+    },
+    {
+      "id": "130000000000000403",
+      "name": "うるおいドリンク_v1",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000019",
+        "link_data": {
+          "link": "https://wellness.example.com/drink",
+          "message": "毎朝の一杯で、すこやかな習慣を。※個人の感想です。",
+          "name": "Example Wellness うるおいドリンク",
+          "description": "Example Wellness（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          },
+          "image_hash": "fixtureimg0403"
+        }
+      }
+    },
+    {
+      "id": "130000000000000405",
+      "name": "栗デニッシュ_auto",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000019",
+        "link_data": {
+          "link": "https://shop.example.com/autumn/marron",
+          "message": "【ｎｏ．１】絶対においしい栗のデニッシュ。毎朝焼きたてをお届けします。",
+          "name": "栗のデニッシュ",
+          "description": "Example Bakery（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          },
+          "image_hash": "fixtureimg0401"
+        }
+      }
+    },
+    {
+      "id": "130000000000000406",
+      "name": "うるおいドリンク_auto",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000019",
+        "link_data": {
+          "link": "https://wellness.example.com/drink",
+          "message": "毎朝の一杯で、うるおい2倍。※個人の感想です。",
+          "name": "Example Wellness うるおいドリンク",
+          "description": "Example Wellness（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          },
+          "image_hash": "fixtureimg0403"
+        }
+      }
+    },
+    {
+      "id": "130000000000000407",
+      "name": "試作_未使用",
+      "status": "ACTIVE",
+      "object_story_spec": {
+        "page_id": "990000000000019",
+        "link_data": {
+          "link": "https://shop.example.com/autumn/new",
+          "message": "新食感の栗パン、今だけ半額。",
+          "name": "新作の栗パン",
+          "description": "Example Bakery（架空）",
+          "call_to_action": {
+            "type": "SHOP_NOW"
+          },
+          "image_hash": "fixtureimg0407"
+        }
+      }
+    }
+  ],
+  "paging": {
+    "cursors": {
+      "before": "fixture",
+      "after": "fixture"
+    }
+  }
+}

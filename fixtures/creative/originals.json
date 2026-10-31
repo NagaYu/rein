@@ -1,0 +1,11 @@
+{
+  "note": "Approved originals registered from fixtures/creative/base (fictional). registered_by is self-declared, not verified.",
+  "registered_at": "2026-10-28T02:00:00Z",
+  "registered_by": "広告主担当A（架空）",
+  "originals": [
+    {"creative_id": "130000000000000401"},
+    {"creative_id": "130000000000000402",
+     "substantiation": [{"claim": "売上200%アップ", "source": "社内 POS 集計 2025年10月 対前年同月比（架空の資料 ID: EV-0001）"}]},
+    {"creative_id": "130000000000000403"}
+  ]
+}

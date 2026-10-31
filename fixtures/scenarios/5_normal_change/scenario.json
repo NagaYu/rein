@@ -1,0 +1,13 @@
+{
+  "title": "正常な変更（違反にならない）",
+  "expected": [
+    {
+      "entity_type": "adset",
+      "entity_id": "120000000000000201",
+      "field": "daily_budget",
+      "severity": null,
+      "rules": [],
+      "actor_kind": "human"
+    }
+  ]
+}

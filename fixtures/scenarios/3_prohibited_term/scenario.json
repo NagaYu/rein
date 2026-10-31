@@ -1,0 +1,25 @@
+{
+  "title": "文面に禁止語句が入る",
+  "expected": [
+    {
+      "entity_type": "ad",
+      "entity_id": "120000000000000303",
+      "field": "creative_resolved.message",
+      "severity": "violation",
+      "rules": [
+        "banned-claims"
+      ],
+      "actor_kind": "meta_ai"
+    },
+    {
+      "entity_type": "creative",
+      "entity_id": "120000000000000406",
+      "field": "*",
+      "severity": "violation",
+      "rules": [
+        "banned-claims"
+      ],
+      "actor_kind": "unknown"
+    }
+  ]
+}

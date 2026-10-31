@@ -1,0 +1,43 @@
+{
+  "note": "Phase 2 proxy scenarios. Calls do not overlap, so they can also run in order against one account (demo). Downstream starts from fixtures/base (fictional). Policy: configs/policy.proxy.example.yaml. Default clock 2026-10-28T05:00:00Z = Wed 14:00 JST.",
+  "default_clock": "2026-10-28T05:00:00Z",
+  "calls": [
+    {"id": 1, "title": "上限以内の小幅な予算増（AS2: 4000 → 4400, +10%）",
+     "tool": "ads_update_entity", "arguments": {"entity_id": "120000000000000202", "fields": {"daily_budget": 4400}},
+     "expected": "allow", "downstream_changed": true, "rules": []},
+    {"id": 2, "title": "絶対上限を超える予算増（5000 → 50000）",
+     "tool": "ads_update_entity", "arguments": {"entity_id": "120000000000000201", "fields": {"daily_budget": 50000}},
+     "expected": "deny", "downstream_changed": false, "rules": ["adset-daily-cap", "budget-step-up"]},
+    {"id": 3, "title": "上限以内だが増額率の閾値超え（5000 → 9000, +80%）",
+     "tool": "ads_update_entity", "arguments": {"entity_id": "120000000000000201", "fields": {"daily_budget": 9000}},
+     "expected": "require_approval", "downstream_changed": false, "rules": ["budget-step-up"]},
+    {"id": 4, "title": "リンク先が変わるクリエイティブ付け替え（AD2: CR2 → CR1）",
+     "tool": "ads_update_entity", "arguments": {"entity_id": "120000000000000302", "entity_type": "ad", "fields": {"creative_id": "120000000000000401"}},
+     "expected": "deny", "downstream_changed": false, "rules": ["frozen-landing-url"]},
+    {"id": 5, "title": "新規キャンペーン作成",
+     "tool": "ads_create_campaign", "arguments": {"account_id": "act_100000000000001", "name": "冬の新作パン_認知", "objective": "OUTCOME_AWARENESS"},
+     "expected": "require_approval", "downstream_changed": false, "rules": ["new-campaign-needs-approval"]},
+    {"id": 6, "title": "深夜（木曜 03:00 JST）のステータス変更",
+     "clock": "2026-10-28T18:00:00Z",
+     "tool": "ads_update_entity", "arguments": {"entity_id": "120000000000000202", "fields": {"status": "PAUSED"}},
+     "expected": "require_approval", "downstream_changed": false, "rules": ["business-hours"]},
+    {"id": 7, "title": "禁止語句（全角の ｎｏ．１、絶対）を含むクリエイティブ作成",
+     "tool": "ads_create_creative", "arguments": {"account_id": "act_100000000000001", "name": "栗デニッシュ_auto", "link": "https://shop.example.com/autumn/marron", "message": "【ｎｏ．１】食べるだけで絶対やせる栗デニッシュ。"},
+     "expected": "deny", "downstream_changed": false, "rules": ["banned-claims"]},
+    {"id": 8, "title": "読み取り系コール（素通し、監査には残る）",
+     "tool": "ads_get_ad_entities", "arguments": {"entity_type": "adset"},
+     "expected": "passthrough", "downstream_changed": false, "rules": []},
+    {"id": 9, "title": "許可リストに無い未知のツール",
+     "tool": "ads_delete_entity", "arguments": {"entity_id": "120000000000000201"},
+     "expected": "deny", "downstream_changed": false, "rules": ["rein:unknown-tool"]},
+    {"id": 10, "title": "引数が壊れた変更系コール（daily_budget が数値でない）",
+     "tool": "ads_update_entity", "arguments": {"entity_id": "120000000000000201", "fields": {"daily_budget": "lots"}},
+     "expected": "deny", "downstream_changed": false, "rules": ["rein:uninterpretable"]}
+  ],
+  "approval_flows": [
+    {"id": 11, "title": "承認待ち → approve → 1 回だけ実行", "call": 3, "steps": ["approve"], "final_status": "executed", "downstream_writes": 1},
+    {"id": 12, "title": "承認待ち → reject → 実行されない", "call": 3, "steps": ["reject", "approve"], "final_status": "rejected", "downstream_writes": 0},
+    {"id": 13, "title": "承認待ち → 期限切れ → approve しても実行できない", "call": 3, "steps": ["wait_ttl", "approve"], "final_status": "expired", "downstream_writes": 0},
+    {"id": 14, "title": "approve の二度押し → 再実行されない", "call": 3, "steps": ["approve", "approve"], "final_status": "executed", "downstream_writes": 1}
+  ]
+}

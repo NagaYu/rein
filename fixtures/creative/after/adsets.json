@@ -1,0 +1,52 @@
+{
+  "data": [
+    {
+      "id": "130000000000000201",
+      "name": "パン_全国_25-54",
+      "campaign_id": "130000000000000101",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "daily_budget": "6000",
+      "billing_event": "IMPRESSIONS",
+      "optimization_goal": "REACH",
+      "targeting": {
+        "geo_locations": {
+          "countries": [
+            "JP"
+          ]
+        },
+        "age_min": 25,
+        "age_max": 54
+      },
+      "start_time": "2026-10-01T00:00:00+0900",
+      "updated_time": "2026-10-20T10:00:00+0900"
+    },
+    {
+      "id": "130000000000000202",
+      "name": "ドリンク_全国_25-54",
+      "campaign_id": "130000000000000102",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "daily_budget": "6000",
+      "billing_event": "IMPRESSIONS",
+      "optimization_goal": "REACH",
+      "targeting": {
+        "geo_locations": {
+          "countries": [
+            "JP"
+          ]
+        },
+        "age_min": 25,
+        "age_max": 54
+      },
+      "start_time": "2026-10-01T00:00:00+0900",
+      "updated_time": "2026-10-20T10:00:00+0900"
+    }
+  ],
+  "paging": {
+    "cursors": {
+      "before": "fixture",
+      "after": "fixture"
+    }
+  }
+}

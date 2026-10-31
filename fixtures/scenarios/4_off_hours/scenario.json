@@ -1,0 +1,15 @@
+{
+  "title": "想定時間外の変更",
+  "expected": [
+    {
+      "entity_type": "adset",
+      "entity_id": "120000000000000202",
+      "field": "status",
+      "severity": "warning",
+      "rules": [
+        "business-hours"
+      ],
+      "actor_kind": "human"
+    }
+  ]
+}

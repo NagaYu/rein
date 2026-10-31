@@ -1,0 +1,15 @@
+{
+  "title": "リンク先 URL が差し替わる（クリエイティブ差し替え経由）",
+  "expected": [
+    {
+      "entity_type": "ad",
+      "entity_id": "120000000000000302",
+      "field": "creative_resolved.link",
+      "severity": "violation",
+      "rules": [
+        "frozen-landing-url"
+      ],
+      "actor_kind": "unknown"
+    }
+  ]
+}

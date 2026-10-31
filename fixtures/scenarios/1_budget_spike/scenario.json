@@ -1,0 +1,15 @@
+{
+  "title": "予算が上限を超えて跳ね上がる",
+  "expected": [
+    {
+      "entity_type": "adset",
+      "entity_id": "120000000000000201",
+      "field": "daily_budget",
+      "severity": "violation",
+      "rules": [
+        "adset-daily-cap"
+      ],
+      "actor_kind": "external_agent"
+    }
+  ]
+}

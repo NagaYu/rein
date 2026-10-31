@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "event_type": "update_ad_creative",
+      "translated_event_type": "update ad creative",
+      "event_time": "2026-10-28T16:00:00+0900",
+      "object_id": "130000000000000301",
+      "object_type": "ADGROUP",
+      "actor_id": "990000000000888",
+      "actor_name": "Meta (fixture label)",
+      "application_id": "900000000000003",
+      "application_name": "Advantage+ creative (fixture label)",
+      "extra_data": "{}"
+    }
+  ]
+}

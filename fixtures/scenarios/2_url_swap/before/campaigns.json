@@ -1,0 +1,31 @@
+{
+  "data": [
+    {
+      "id": "120000000000000101",
+      "name": "秋の新作パン_認知",
+      "objective": "OUTCOME_AWARENESS",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+      "special_ad_categories": [],
+      "updated_time": "2026-10-20T10:00:00+0900"
+    },
+    {
+      "id": "120000000000000102",
+      "name": "定番商品_リターゲティング",
+      "objective": "OUTCOME_SALES",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "daily_budget": "30000",
+      "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+      "special_ad_categories": [],
+      "updated_time": "2026-10-20T10:00:00+0900"
+    }
+  ],
+  "paging": {
+    "cursors": {
+      "before": "fixture",
+      "after": "fixture"
+    }
+  }
+}

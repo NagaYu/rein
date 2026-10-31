@@ -1,0 +1,62 @@
+# Rein policy example (Phase 1).
+# IDs below are fictional and match the fixtures under fixtures/. Replace them with your own.
+version: 1
+timezone: Asia/Tokyo   # used by change_window unless a rule sets its own
+
+# Who is who. Rein only labels a change human / external_agent / meta_ai when a matching
+# activity-log entry has an actor_id or application_id declared here. Everything else is unknown.
+attribution:
+  applications:
+    "900000000000001": {kind: human, label: "Ads Manager (fixture label)"}
+    "900000000000002": {kind: external_agent, label: "Example AI Optimizer (fictional third-party)"}
+    "900000000000003": {kind: meta_ai, label: "Advantage+ creative (fixture label)"}
+  actors: {}
+    # "990000000000555": {kind: human, label: "Staff A (fictional)"}
+
+rules:
+  # Budgets are compared as the integers the API returns, in the account currency's API unit
+  # (for JPY that is yen; for currencies with minor units such as USD it is cents).
+  # Reaching the cap exactly is allowed; anything above it is a violation.
+  - id: adset-daily-cap
+    type: budget_cap
+    entity_types: [adset]
+    fields: [daily_budget]
+    max: 20000
+
+  - id: campaign-daily-cap
+    type: budget_cap
+    entity_types: [campaign]
+    fields: [daily_budget, lifetime_budget]
+    max: 60000
+
+  # Field paths are dotted and support * wildcards. `creative_resolved.*` is the link/text of
+  # the creative an ad currently points to, so swapping the creative is caught on the ad.
+  - id: frozen-landing-url
+    type: frozen_fields
+    entity_types: [ad]
+    fields: [creative_resolved.link]
+    include_deletion: true   # an ad vanishing from the snapshot is also flagged
+
+  # Matching is NFKC-normalized (full-width = half-width) and case-insensitive by default.
+  - id: banned-claims
+    type: prohibited_terms
+    terms: ["絶対", "No.1", "必ず痩せる", "guaranteed"]
+    case_sensitive: false
+    fields:
+      - creative_resolved.message
+      - creative_resolved.headline
+      - creative_resolved.description
+      - resolved.message
+      - resolved.headline
+      - resolved.description
+
+  # Changes outside these hours are marked as warnings (not violations).
+  # start is inclusive, end is exclusive. Overnight windows such as 22:00-06:00 are allowed.
+  - id: business-hours
+    type: change_window
+    windows:
+      - {days: [mon, tue, wed, thu, fri], start: "09:00", end: "19:00"}
+
+alerts:
+  file: alerts.jsonl                       # JSON Lines, appended
+  webhook_url_env: REIN_ALERT_WEBHOOK_URL  # POST is attempted only when this env var is set

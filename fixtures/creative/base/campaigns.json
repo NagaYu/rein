@@ -1,0 +1,30 @@
+{
+  "data": [
+    {
+      "id": "130000000000000101",
+      "name": "秋のパン_認知",
+      "objective": "OUTCOME_AWARENESS",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+      "special_ad_categories": [],
+      "updated_time": "2026-10-20T10:00:00+0900"
+    },
+    {
+      "id": "130000000000000102",
+      "name": "うるおいドリンク_獲得",
+      "objective": "OUTCOME_SALES",
+      "status": "ACTIVE",
+      "effective_status": "ACTIVE",
+      "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
+      "special_ad_categories": [],
+      "updated_time": "2026-10-20T10:00:00+0900"
+    }
+  ],
+  "paging": {
+    "cursors": {
+      "before": "fixture",
+      "after": "fixture"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "note": "Fictional category / brand attributes (Meta has no such field; Rein reads them from this file). Creative-level entries win over ad set, ad set over campaign.",
+  "adset": {
+    "130000000000000201": {"category": "food", "brand": "example_bakery"},
+    "130000000000000202": {"category": "health_beauty", "brand": "example_wellness"}
+  }
+}
