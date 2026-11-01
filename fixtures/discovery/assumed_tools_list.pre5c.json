@@ -1,0 +1,802 @@
+{
+  "_note": "ASSUMED SHAPES — test material, not a capture. Tool names follow Meta's published Ads MCP tool list as recorded during Rein Phase 2; descriptions are short paraphrases. Every inputSchema and annotation here is Rein's assumption (Meta publishes no schemas). Some shapes deliberately differ from Rein's interpreter so the discovery report has gaps to find; they say nothing about the real schemas.",
+  "serverInfo": {
+    "name": "assumed-ads-mcp (fixture)",
+    "version": "0"
+  },
+  "tools": [
+    {
+      "name": "ads_get_ad_accounts",
+      "description": "List the ad accounts available to the token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_ad_account_pages",
+      "description": "List Pages used for ads on an ad account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_pages_for_business",
+      "description": "List Pages owned by a business.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "business_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_user_pages",
+      "description": "List Pages the user can advertise with.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_field_context",
+      "description": "Look up metadata about ad fields.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "entity_type"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_create_campaign",
+      "description": "Create a campaign (paused).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "objective": {
+            "type": "string"
+          },
+          "special_ad_categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "daily_budget": {
+            "type": "integer"
+          },
+          "lifetime_budget": {
+            "type": "integer"
+          },
+          "buying_type": {
+            "type": "string"
+          },
+          "bid_strategy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "name",
+          "objective",
+          "special_ad_categories"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_create_ad_set",
+      "description": "Create an ad set under a campaign (paused).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "campaign_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "daily_budget": {
+            "type": "integer"
+          },
+          "lifetime_budget": {
+            "type": "integer"
+          },
+          "optimization_goal": {
+            "type": "string"
+          },
+          "billing_event": {
+            "type": "string"
+          },
+          "targeting": {
+            "type": "object"
+          },
+          "start_time": {
+            "type": "string"
+          },
+          "end_time": {
+            "type": "string"
+          },
+          "bid_amount": {
+            "type": "integer"
+          },
+          "promoted_object": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "account_id",
+          "campaign_id",
+          "name",
+          "optimization_goal",
+          "billing_event",
+          "targeting"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_create_ad",
+      "description": "Create an ad under an ad set (paused).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "adset_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "creative_id": {
+            "type": "string"
+          },
+          "tracking_specs": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "account_id",
+          "adset_id",
+          "name",
+          "creative_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_update_entity",
+      "description": "Update fields on a campaign, ad set or ad.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_id": {
+            "type": "string"
+          },
+          "entity_type": {
+            "type": "string",
+            "enum": [
+              "campaign",
+              "adset",
+              "ad"
+            ]
+          },
+          "fields": {
+            "type": "object",
+            "properties": {
+              "name": {},
+              "status": {},
+              "daily_budget": {},
+              "lifetime_budget": {},
+              "bid_amount": {},
+              "end_time": {},
+              "creative_id": {},
+              "bid_strategy": {},
+              "targeting": {}
+            }
+          }
+        },
+        "required": [
+          "entity_id",
+          "fields"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_activate_entity",
+      "description": "Set a paused campaign, ad set or ad to active.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "entity_id": {
+            "type": "string"
+          },
+          "entity_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_create_creative",
+      "description": "Create a single-image link ad creative.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "headline": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "call_to_action": {
+            "type": "string"
+          },
+          "image_hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "name",
+          "page_id",
+          "link",
+          "message"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_creatives",
+      "description": "List creatives in an ad account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_creative_ads",
+      "description": "List the ads that use a creative.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "creative_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "creative_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_ad_images",
+      "description": "List images uploaded to an ad account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_ad_videos",
+      "description": "List videos uploaded to an ad account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_ad_preview",
+      "description": "Render an ad or creative preview for a placement.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "creative_id": {
+            "type": "string"
+          },
+          "ad_format": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ad_format"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_ad_entities",
+      "description": "Search and read campaigns, ad sets and ads, including reporting.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "entity_type": {
+            "type": "string"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filtering": {
+            "type": "array"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "date_preset": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "entity_type"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_library_search",
+      "description": "Search the public Ad Library.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "search_terms": {
+            "type": "string"
+          },
+          "ad_reached_countries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "search_terms"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_ig_accounts",
+      "description": "List Instagram accounts linked to an ad account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_ig_media",
+      "description": "List boost-eligible media on an Instagram account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ig_account_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ig_account_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_boost_ig_post",
+      "description": "Turn an organic Instagram post into an ad.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "ig_media_id": {
+            "type": "string"
+          },
+          "daily_budget": {
+            "type": "integer"
+          },
+          "targeting": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "account_id",
+          "ig_media_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_ad_account_custom_audiences",
+      "description": "List custom audiences on an ad account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "subtype": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_custom_audience",
+      "description": "Read one custom audience.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "audience_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "audience_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_get_custom_audience_adsets",
+      "description": "List ad sets targeting a custom audience.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "audience_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "audience_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_create_custom_audience",
+      "description": "Create a custom audience.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "subtype": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "account_id",
+          "name",
+          "subtype"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_update_custom_audience",
+      "description": "Update a custom audience's name, description, rule or labels.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "audience_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "audience_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "ads_update_custom_audience_users",
+      "description": "Add or remove hashed users on a customer-list audience.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "audience_id": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "data": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "audience_id",
+          "operation",
+          "schema",
+          "data"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "ads_delete_custom_audience",
+      "description": "Delete a custom audience.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "audience_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "audience_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "ads_account_get_activity_logs",
+      "description": "Read activity log entries for an ad account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string"
+          },
+          "since": {
+            "type": "string"
+          },
+          "until": {
+            "type": "string"
+          },
+          "object_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false
+      }
+    }
+  ]
+}

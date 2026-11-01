@@ -37,3 +37,13 @@ approval outcomes. Read by `tests/test_proxy_scenarios.py` and `scripts/demo_pro
   `link_data` override. Read by `tests/test_creative_scenarios.py`.
 - `evidence/after/`: account 1 the next day, for the evidence demo. It contains the two budget changes the proxy
   forwarded (no history) and changes by an external agent, a person, Meta AI and an unknown actor (generated).
+
+## discovery/
+
+- `discovery/assumed_tools_list.json`: the 15 in-scope tools (Rein's 9 known tools and the 6 reads allowlisted in
+  Phase 5C) with **real names, unknown types**. Property names, required lists and annotations come from
+  `discover-live.json` at the repository root (the real, read-only discovery report). Types, enums and nested shapes
+  are not in that report, so every property is an empty schema. Built by `scripts/build_discovery_fixture.py`; the
+  mock Ads MCP serves these schemas.
+- `discovery/assumed_tools_list.pre5c.json`: the Phase 5A guesses (29 tools, assumed shapes), kept for regression:
+  `tests/test_discover.py` re-runs it to show where the guesses were wrong.

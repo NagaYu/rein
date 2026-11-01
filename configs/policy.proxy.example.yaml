@@ -87,4 +87,14 @@ proxy:
     - ads_get_ad_accounts
     - ads_get_ad_entities
     - ads_get_creatives
+    # Added in Phase 5C after reviewing their schemas in the real tools/list (discover-live.json): each
+    # reads one kind of object and takes no argument that could change anything. Annotations played no
+    # part. Every other read-looking real tool (catalog, insights, experiments, datasets, pixels, ...)
+    # stays denied until it is reviewed the same way.
+    - ads_account_get_activity_logs   # activity history: what Watch uses for attribution
+    - ads_get_ad_images
+    - ads_get_ad_videos
+    - ads_get_custom_audience
+    - ads_get_ad_account_pages
+    - ads_get_ig_accounts
   approval_ttl_hours: 24

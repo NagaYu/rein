@@ -35,7 +35,7 @@ SOURCE_ORDER = {"watch.change": 0, "watch.alert": 1, "watch.revert_run": 2, "pro
 CSV_COLUMNS = ("time", "source", "ref", "account_id", "entity_type", "entity_id", "event", "field", "actor_kind",
                "attribution_basis", "severity", "decision", "status", "rules", "related", "summary")
 PROXY_DECISIONS = ("allow", "passthrough", "deny", "require_approval")
-APPROVAL_STATUSES = ("pending", "approved", "rejected", "expired", "executed", "aborted", "failed")
+APPROVAL_STATUSES = ("pending", "approved", "rejected", "expired", "executed", "aborted", "failed", "execution_failed")
 CREATIVE_BANDS = ("high", "medium", "low")
 
 INTEGRITY_NOTE = ("manifest.json のハッシュが保証するのは、エクスポート後にパックが改変されたことの検出までです。"

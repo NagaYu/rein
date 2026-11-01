@@ -10,7 +10,7 @@ from rein.proxy import ApprovalError, InProcessDownstream, ReinProxy
 from proxy_helpers import AS1, BASE, Clock, MockAdsMcp, approve, call, make_proxy, policy_with
 from test_proxy_failclosed import ReadsBroken
 
-BUMP = {"entity_id": AS1, "fields": {"daily_budget": 9000}}  # +80% -> require_approval
+BUMP = {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": 9000}}  # +80% -> require_approval
 
 
 def queued(clock="2026-10-28T05:00:00Z", **kw):
@@ -43,7 +43,7 @@ def test_expiry_is_recorded_once():
 
 def test_drift_aborts_execution():
     proxy, mock, _, aid = queued()
-    mock.call("ads_update_entity", {"entity_id": AS1, "fields": {"daily_budget": 15000}})  # someone else changed it
+    mock.call("ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": 15000}})  # someone else changed it
     outcome = approve(proxy, aid)
     assert outcome.status == "aborted" and not outcome.executed
     assert mock.find("adset", AS1)["daily_budget"] == "15000"
@@ -123,7 +123,7 @@ def test_concurrent_double_approve_executes_once():
 
 def test_approved_campaign_creation_runs_once_and_records_new_id():
     proxy, mock, _ = make_proxy()
-    r = call(proxy, "ads_create_campaign", {"account_id": "act_100000000000001", "name": "冬", "objective": "OUTCOME_AWARENESS"})
+    r = call(proxy, "ads_create_campaign", {"ad_account_id": "act_100000000000001", "buying_type": "AUCTION", "campaign_name": "冬", "objective": "OUTCOME_AWARENESS"})
     aid = r.structuredContent["rein"]["approval_id"]
     outcome = approve(proxy, aid)
     assert outcome.executed

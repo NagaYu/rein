@@ -1,4 +1,4 @@
-"""rein snapshot | feed | check | revert | proxy | approvals | audit | creative | evidence"""
+"""rein snapshot | feed | check | revert | proxy | approvals | audit | creative | evidence | preflight"""
 
 from __future__ import annotations
 
@@ -153,22 +153,116 @@ def cmd_revert(args) -> int:
 # --------------------------------------------------------------------------- Phase 2: proxy
 
 
+DOWNSTREAMS = ("mock-stdio", "http")
+
+
+def _add_downstream_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--downstream", choices=DOWNSTREAMS, default="mock-stdio",
+                        help="mock-stdio (default): the in-repo mock as a child process; http: an MCP streamable-HTTP "
+                             "endpoint, token from REIN_ADS_MCP_TOKEN")
+    parser.add_argument("--mock-fixture", help="mock-stdio: fixture directory the mock Ads MCP starts from")
+    parser.add_argument("--mock-state", help="mock-stdio: JSON file where the mock keeps its state between processes")
+    parser.add_argument("--downstream-url", help="http: endpoint URL (https; plain http only on loopback)")
+    parser.add_argument("--downstream-timeout", type=float, default=30.0, help="http: seconds per operation")
+
+
+def _downstream(args, *, session_class=None):
+    """Validate the downstream settings before anything starts. Returns (description, async context manager)."""
+    from mcp import ClientSession
+
+    from .downstream_http import http_downstream_from_env, open_http_downstream, public_url
+    from .proxy import mock_downstream_over_stdio
+
+    session_class = session_class or ClientSession
+    if args.downstream == "http":
+        if args.mock_fixture or args.mock_state:
+            raise ValueError("--mock-fixture / --mock-state apply to --downstream mock-stdio only")
+        downstream = http_downstream_from_env(args.downstream_url or "", timeout=args.downstream_timeout,
+                                              session_class=session_class)
+        return {"transport": "http", "endpoint": public_url(downstream.url)}, open_http_downstream(downstream)
+    if args.downstream_url:
+        raise ValueError("--downstream-url applies to --downstream http only")
+    if not args.mock_fixture:
+        raise ValueError("--mock-fixture is required with --downstream mock-stdio")
+    return ({"transport": "mock-stdio", "endpoint": f"mock fixture {args.mock_fixture}"},
+            mock_downstream_over_stdio(args.mock_fixture, args.mock_state, session_class=session_class))
+
+
 def cmd_proxy(args) -> int:
     import anyio
 
-    from .proxy import serve_stdio
+    from .proxy import serve
+
+    if not args.policy:
+        raise ValueError("--policy is required")
+    policy = load_policy(args.policy)
+    desc, downstream = _downstream(args)
+    # stdout is the MCP channel; anything human-readable goes to stderr.
+    if desc["transport"] == "http":
+        print(f"rein proxy: stdio MCP server, downstream = HTTP {desc['endpoint']} (token from env, not shown)",
+              file=sys.stderr)
+    else:
+        print(f"rein proxy: stdio MCP server, downstream = mock Ads MCP ({args.mock_fixture})", file=sys.stderr)
+    anyio.run(serve, policy, args.db, downstream)
+    return 0
+
+
+def cmd_proxy_discover(args) -> int:
+    import anyio
+
+    from .discover import ListOnlyClientSession, build_report, list_all_tools, load_tools_document, render_summary, \
+        report_json
+    from .downstream_http import DiscoveryViolation, DownstreamFailure, classify
 
     policy = load_policy(args.policy)
-    # stdout is the MCP channel; anything human-readable goes to stderr.
-    print(f"rein proxy: stdio MCP server, downstream = mock Ads MCP ({args.mock_fixture})", file=sys.stderr)
-    anyio.run(serve_stdio, policy, args.db, args.mock_fixture, args.mock_state)
+    if args.tools_file:
+        tools, server = load_tools_document(args.tools_file)
+        desc = {"transport": "file", "endpoint": Path(args.tools_file).name}
+    else:
+        desc, downstream_cm = _downstream(args, session_class=ListOnlyClientSession)
+
+        async def fetch():
+            async with downstream_cm as downstream:
+                if hasattr(downstream, "session"):  # stdio: one session for the whole run
+                    found = await list_all_tools(downstream.session)
+                else:
+                    found = await downstream.list_tools()
+                return found, downstream.server_info
+
+        try:
+            tools, server = anyio.run(fetch)
+        except DiscoveryViolation:
+            raise
+        except DownstreamFailure:
+            raise
+        except (Exception, BaseExceptionGroup) as exc:  # stdio and other paths: reduce to a failure class
+            raise classify(exc) from None
+    report = build_report(tools, policy, downstream=desc, server=server)
+    text = report_json(report, os.environ.get("REIN_ADS_MCP_TOKEN"))
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8")
+    print(text if args.json else render_summary(report), end="" if args.json else "\n")
     return 0
+
+
+def cmd_preflight(args) -> int:
+    from .preflight import as_dict, connectivity_check, offline_preflight, render
+
+    result = offline_preflight(args.account)
+    if args.live and result.ok:
+        result.checks.append(connectivity_check(args.account))
+    if args.json:
+        print(json.dumps(as_dict(result), ensure_ascii=False, indent=2))
+    else:
+        print(render(result))
+    return 0 if result.ok else 1
 
 
 def _approval_line(a: dict[str, Any]) -> str:
     client = a.get("declared_client") or {}
     rules = ",".join(r["rule_id"] for r in a.get("findings") or [])
-    line = (f"{a['id']}  {a['status']:<9} received={a['received_at']} expires={a['expires_at']}  "
+    status = a["status"] + (f" [{a['result_kind']}]" if a.get("result_kind") else "")
+    line = (f"{a['id']}  {status:<9} received={a['received_at']} expires={a['expires_at']}  "
             f"{a['tool']} {a.get('entity_type') or ''} {a.get('entity_id') or ''}  "
             f"client={client.get('name')}（申告）  rules={rules}")
     if a.get("status_reason"):
@@ -199,17 +293,22 @@ def cmd_approvals_list(args) -> int:
 def cmd_approvals_approve(args) -> int:
     import anyio
 
-    from .proxy import ReinProxy, mock_downstream_over_stdio
+    from .proxy import ReinProxy
 
     policy = load_policy(args.policy)
 
+    _desc, downstream_cm = _downstream(args)
+
     async def run():
-        async with mock_downstream_over_stdio(args.mock_fixture, args.mock_state) as downstream:
+        async with downstream_cm as downstream:
             with _open_ledger(args) as ledger:
                 return await ReinProxy(policy, ledger, downstream).approve(args.approval_id, args.by)
 
     outcome = anyio.run(run)
-    print(f"{outcome.approval_id}: {outcome.status} — {outcome.message}")
+    kind = f" [{outcome.result_kind}]" if outcome.result_kind else ""
+    print(f"{outcome.approval_id}: {outcome.status}{kind} — {outcome.message}")
+    if outcome.changed and outcome.status in ("executed", "execution_failed", "failed"):
+        print(f"  downstream: {outcome.detail or '(nothing)'}")
     return 0 if outcome.executed else 2
 
 
@@ -234,11 +333,15 @@ def cmd_audit(args) -> int:
         client = (r.get("declared_client") or {}).get("name")
         who = f"client={client}（申告）" + (f" operator={r['operator']}" if r.get("operator") else "")
         target = f"{r.get('entity_type') or ''} {r.get('entity_id') or ''}".strip()
-        print(f"#{r['id']:<4} {r['occurred_at']}  {r['event']:<18} {r['decision']:<16} {r['tool']}  {target}  {who}"
+        decision = r["decision"] + (f" [{r['result_kind']}]" if r.get("result_kind") else "")
+        print(f"#{r['id']:<4} {r['occurred_at']}  {r['event']:<18} {decision:<16} {r['tool']}  {target}  {who}"
               + (f"  approval={r['approval_id']}" if r.get("approval_id") else ""))
         print(f"       args: {r['arguments_summary']}")
         for reason in r.get("reasons") or []:
-            print(f"       - {reason['rule_id']}: {reason['reason']}")
+            print(f"       - {reason['rule_id']}: {reason['reason']}"
+                  + (f"  detail: {reason['detail']}" if reason.get("detail") else ""))
+        if r.get("forwarded") and r.get("result_summary"):
+            print(f"       result: {r['result_summary']}")
     return 0
 
 
@@ -406,24 +509,32 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--json", action="store_true")
     r.set_defaults(func=cmd_revert)
 
-    px = sub.add_parser("proxy", help="run the Rein MCP proxy on stdio (downstream: mock Ads MCP only)")
-    px.add_argument("--policy", required=True)
-    px.add_argument("--mock-fixture", required=True, help="fixture directory the mock Ads MCP starts from")
-    px.add_argument("--mock-state", help="JSON file where the mock keeps its state between processes")
+    px = sub.add_parser("proxy", help="run the Rein MCP proxy on stdio (downstream: the mock, or an HTTP endpoint)")
+    px.add_argument("--policy")
+    _add_downstream_args(px)
     px.set_defaults(func=cmd_proxy)
+    pxsub = px.add_subparsers(dest="proxy_command")
+    dc = pxsub.add_parser("discover", help="read-only: list the downstream's tools and report how Rein fits them "
+                                           "(sends initialize and tools/list only)")
+    dc.add_argument("--policy", required=True, help="policy whose proxy.read_tools is compared")
+    _add_downstream_args(dc)
+    dc.add_argument("--tools-file", help="build the report from a saved tools/list JSON document (no connection)")
+    dc.add_argument("--json", action="store_true", help="print the JSON report instead of the summary")
+    dc.add_argument("--out", help="also write the JSON report to this file")
+    dc.set_defaults(func=cmd_proxy_discover)
 
     ap = sub.add_parser("approvals", help="list / approve / reject queued proxy calls")
     asub = ap.add_subparsers(dest="approvals_command", required=True)
     al = asub.add_parser("list")
-    al.add_argument("--status", choices=["pending", "approved", "rejected", "expired", "executed", "aborted", "failed"])
+    al.add_argument("--status", choices=["pending", "approved", "rejected", "expired", "executed", "aborted", "failed",
+                                         "execution_failed"])
     al.add_argument("--policy", help="optional; not needed to list")
     al.add_argument("--json", action="store_true")
     al.set_defaults(func=cmd_approvals_list)
     aa = asub.add_parser("approve", help="approve and run the queued call once (after re-checking)")
     aa.add_argument("approval_id")
     aa.add_argument("--policy", required=True)
-    aa.add_argument("--mock-fixture", required=True)
-    aa.add_argument("--mock-state")
+    _add_downstream_args(aa)
     aa.add_argument("--by", default=getpass.getuser(), help="operator name recorded in the audit (not verified)")
     aa.set_defaults(func=cmd_approvals_approve)
     ar = asub.add_parser("reject", help="reject a queued call; it will never run")
@@ -437,6 +548,13 @@ def build_parser() -> argparse.ArgumentParser:
     au.add_argument("--limit", type=int)
     au.add_argument("--json", action="store_true")
     au.set_defaults(func=cmd_audit)
+
+    pf = sub.add_parser("preflight", help="check the read-only Watch configuration (offline unless --live)")
+    pf.add_argument("--account", help="ad account id, act_<digits>")
+    pf.add_argument("--live", action="store_true",
+                    help="also make read-only GET requests to the Marketing API (the owner's later, manual step)")
+    pf.add_argument("--json", action="store_true")
+    pf.set_defaults(func=cmd_preflight)
 
     cr = sub.add_parser("creative", help="Creative Check: register approved originals and check candidates")
     csub = cr.add_subparsers(dest="creative_command", required=True)
@@ -491,9 +609,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    from .downstream_http import DownstreamFailure
+
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
+    except DownstreamFailure as exc:  # already reduced to a class: no bodies, headers or tokens
+        print(f"error: downstream failure: {exc.label} (nothing was executed)", file=sys.stderr)
+        return 1
     except (ClientError, PolicyError, KeyError, FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

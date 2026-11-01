@@ -46,14 +46,14 @@ def test_every_call_is_audited_once_with_declared_client():
 
 def test_long_arguments_are_summarized_but_hashed_in_full():
     proxy, _, _ = make_proxy()
-    call(proxy, "ads_update_entity", {"entity_id": AS1, "fields": {"name": "x" * 1000}})
+    call(proxy, "ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"name": "x" * 1000}})
     [row] = proxy.ledger.audit_log()
     assert len(row["arguments_summary"]) == 240 and row["arguments_summary"].endswith("…")
 
 
 def test_approval_lifecycle_audit_trail():
     proxy, _, _ = make_proxy()
-    r = call(proxy, "ads_update_entity", {"entity_id": AS1, "fields": {"daily_budget": 9000}})
+    r = call(proxy, "ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": 9000}})
     aid = r.structuredContent["rein"]["approval_id"]
     approve(proxy, aid, operator="運用責任者B")
     approve(proxy, aid, operator="運用責任者B")
@@ -67,7 +67,7 @@ def test_approval_lifecycle_audit_trail():
 def test_audit_and_watch_ledger_share_entity_id_and_time_format(tmp_path):
     """Phase 3 needs to join proxy audit rows with Watch changes."""
     proxy, mock, _ = make_proxy()
-    call(proxy, "ads_update_entity", {"entity_id": AS1, "fields": {"daily_budget": 5500}})
+    call(proxy, "ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": 5500}})
     after = mock.export_fixture(tmp_path / "after", "2026-10-28T06:00:00Z")
     ingest(proxy.ledger, MockAdsClient(BASE))
     ingest(proxy.ledger, MockAdsClient(after))
@@ -91,13 +91,13 @@ def test_proxy_over_mcp_records_client_info():
                                                                   client_info=AGENT_INFO) as agent:
                 tools = await agent.list_tools()
                 assert "ads_update_entity" in {t.name for t in tools.tools}
-                ok = await agent.call_tool("ads_update_entity", {"entity_id": AS1, "fields": {"daily_budget": 5500}})
+                ok = await agent.call_tool("ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": 5500}})
                 assert not ok.isError and ok.structuredContent["success"] is True
-                denied = await agent.call_tool("ads_update_entity", {"entity_id": AS1, "fields": {"daily_budget": 50000}})
+                denied = await agent.call_tool("ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": 50000}})
                 assert denied.isError and denied.structuredContent["rein"]["decision"] == "deny"
-                broken = await agent.call_tool("ads_update_entity", {"entity_id": AS1, "fields": {"daily_budget": "lots"}})
+                broken = await agent.call_tool("ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": "lots"}})
                 assert broken.isError and broken.structuredContent["rein"]["reasons"][0]["rule_id"] == "rein:uninterpretable"
-                unknown = await agent.call_tool("ads_delete_entity", {"entity_id": AS1})
+                unknown = await agent.call_tool("ads_delete_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset"})
                 assert unknown.isError and unknown.structuredContent["rein"]["decision"] == "deny"
             assert mock.find("adset", AS1)["daily_budget"] == "5500" and len(mock.write_log) == 1
             rows = proxy.ledger.audit_log()
@@ -124,9 +124,9 @@ def test_stdio_proxy_and_approvals_cli(tmp_path, capsys):
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write, client_info=AGENT_INFO) as session:
                 await session.initialize()
-                ok = await session.call_tool("ads_update_entity", {"entity_id": AS1, "fields": {"daily_budget": 5500}})
+                ok = await session.call_tool("ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": 5500}})
                 assert not ok.isError
-                pending = await session.call_tool("ads_update_entity", {"entity_id": AS1, "fields": {"daily_budget": 9000}})
+                pending = await session.call_tool("ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": 9000}})
                 return pending.structuredContent["rein"]
 
     rein = anyio.run(agent)
@@ -157,7 +157,7 @@ def test_reject_cli(tmp_path, capsys):
     db = tmp_path / "rein.db"
     # The CLI runs on the wall clock, so queue the approval on the wall clock too.
     proxy, _, _ = make_proxy(Clock(now_utc()), ledger=Ledger(db))
-    r = call(proxy, "ads_create_campaign", {"account_id": ACCOUNT, "name": "x", "objective": "OUTCOME_SALES"})
+    r = call(proxy, "ads_create_campaign", {"ad_account_id": ACCOUNT, "buying_type": "AUCTION", "campaign_name": "x", "objective": "OUTCOME_SALES"})
     aid = r.structuredContent["rein"]["approval_id"]
     assert main(["--db", str(db), "approvals", "reject", aid, "--by", "boss", "--note", "不要"]) == 0
     assert "rejected" in capsys.readouterr().out

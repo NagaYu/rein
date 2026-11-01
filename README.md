@@ -5,12 +5,17 @@ Ads MCP tool calls before they run (allow / require approval / deny), keeps a fi
 the account and who changed it, plans reverts, checks AI-written creatives against approved originals, and exports a
 hashed evidence pack.
 
-> **Status: built and tested against fixtures and a mock Ads MCP server only. Not connected to a real ad account.**
+> **Status: tested against fixtures and mock Ads MCP servers, and run once against Meta's live Ads MCP on an empty test ad account (see "Verified against the live Meta Ads MCP"). Not used on any production account.**
 >
-> - Every account, ID, business, person and app in this repository is fictional. The proxy's downstream is a mock
->   Ads MCP server that runs in memory; nothing here talks to Meta's Ads MCP or the Marketing API.
+> - Fixtures, demos and tests are fictional and run against mock Ads MCP servers (stdio, or streamable HTTP on
+>   127.0.0.1); no test or demo contacts Meta. The only real material in the repository is the read-only discovery
+>   report (`discover-live.json`: tool and argument names) and the masked test-account and campaign IDs quoted in
+>   the findings. An HTTP downstream for a real endpoint exists; the owner's steps are in
+>   `docs/real-account-setup.md`.
 > - Every number on this page is a scenario result against those fixtures (pass / fail of written-down
->   expectations). None of them is a measurement from real ad operations.
+>   expectations). None of them is a measurement from real ad operations. The figures in 'Verified against the
+>   live Meta Ads MCP' come from the owner-run live sequence (2026-10-31 and 2026-11-01) on one empty test account;
+>   they are observations, not measurements of real ad operations.
 > - Rein is a tool for evidence and control. It does not guarantee ad performance, compliance with platform
 >   policies or law, or who is legally responsible for a change. Creative Check scores rank what a person should
 >   review first; they are not a compliance judgement. Claim extraction only finds declared patterns, so reworded
@@ -18,13 +23,36 @@ hashed evidence pack.
 >
 > The full list is under [Limitations](#limitations).
 
+## Verified against the live Meta Ads MCP (2026-11)
+
+The repository owner ran Rein's gated live sequence against Meta's real Ads MCP server
+(`https://mcp.facebook.com/ads`, "Meta Ads MCP Server" 1.0.0) on 2026-10-31 and 2026-11-01, on an empty,
+business-owned test ad account with no payment method. No production account was touched and nothing was spent.
+
+- **Discovery:** the read-only `rein proxy discover` (initialize and tools/list only) listed 98 tools. The
+  interpreter was refitted offline to their names and required arguments: 9 tools pass through as reviewed
+  reads, 6 writes are evaluated, and the other 83 are denied until each is reviewed (fail-closed).
+- **Approval loop:** two `ads_create_campaign` calls and one `ads_activate_entity` call went through the
+  proxy. Each was queued (`require_approval`), approved by a person, and dispatched exactly once, with every
+  step in the audit log.
+- **A create returned a draft, not an entity:** the server answered each creation with a draft descriptor
+  (`status: DRAFT` and an ID) that, by the same server's own account, was not a campaign entity of the account.
+- **A governed activation published one draft:** `publish_as_active: true` (always queued for approval) was
+  answered with `PUBLISHING`. Afterwards the campaign read back by ID, the Marketing API counted it, and the
+  activity log recorded the change. Ads Manager and the account-level listing still did not list it at the last
+  check, about 27 minutes later.
+- **Attribution:** for a change carried by Rein's app and its system user, the activity log names that system
+  user and app. Changes made by Meta's own AI features were not measured.
+
+Full findings will be published with this update if approved.
+
 ## What it does
 
 Rein has three layers. They share one SQLite ledger.
 
 | Layer | What it does | What it can control |
 |---|---|---|
-| **MCP proxy** | Sits between an agent and the Ads MCP server. Each write call is evaluated against `policy.yaml` **before** it runs: `allow` forwards it, `require_approval` queues it for a person, `deny` blocks it. Every call and every approval event goes to an audit log. Fail-closed: unknown tools, uninterpretable arguments and unresolvable targets are denied; a missing current value means approval, never allow. | Only calls that go **through the proxy**. |
+| **MCP proxy** | Sits between an agent and the Ads MCP server (downstream: the in-repo mock over stdio by default, or an MCP streamable-HTTP endpoint with a Bearer token from the environment). Each write call is evaluated against `policy.yaml` **before** it runs: `allow` forwards it, `require_approval` queues it for a person, `deny` blocks it. Every call and every approval event goes to an audit log. Fail-closed: unknown tools, uninterpretable arguments and unresolvable targets are denied; a missing current value means approval, never allow. | Only calls that go **through the proxy**. |
 | **Watch + Revert** | Takes snapshots of campaigns, ad sets, ads and creatives, diffs them field by field, and writes one ledger row per change with an actor (`human` / `external_agent` / `meta_ai` / `unknown`) and the evidence for it. Policy rules flag violations and warnings, alerts are written, and a revert plan restores the previous values. Reverts execute against a mock client only. | Changes made **any** way, including by Meta's own AI features, but only after the fact: detection and revert, not prevention. |
 | **Creative Check + evidence pack** | Matches a new or rewritten creative to its approved original, diffs it (a landing-link change is always the top finding), extracts claims with declared patterns, and applies prohibited-term, needs-substantiation and brand rules. The result is a 0–100 review-priority score with bands low / medium / high. The evidence pack merges the Watch ledger with the proxy audit and approvals into one timeline and writes a sha256 manifest that `rein evidence verify` checks. | What the declared rules and patterns cover. |
 
@@ -62,6 +90,14 @@ The per-layer demos are still there:
 .venv/bin/python scripts/demo.py           # Watch + Revert: 5 scenarios
 .venv/bin/python scripts/demo_proxy.py     # MCP proxy: 14 scenarios
 .venv/bin/python scripts/demo_evidence.py  # Creative Check + evidence pack
+.venv/bin/python scripts/demo_http.py      # proxy over HTTP to a local mock: allow, deny, approval, read, 401
+```
+
+Two read-only helpers prepare for a real account later (see [docs/real-account-setup.md](docs/real-account-setup.md)):
+
+```bash
+.venv/bin/rein proxy discover --policy configs/policy.proxy.example.yaml --tools-file fixtures/discovery/assumed_tools_list.json
+.venv/bin/rein preflight --account act_100000000000001     # offline: env vars and account id only
 ```
 
 `demo_all.py` builds one SQLite ledger on a simulated clock (2026-10-27 to 2026-10-31) and prints, in order:
@@ -131,17 +167,24 @@ declared in [configs/creative_rules.example.yaml](configs/creative_rules.example
 | 11 | Timeline | 45 entries from both ledgers in time order; summary counts equal the timeline and creative-check records; 2 proxy-forwarded calls matched to Watch changes |
 | 12 | One file edited after export | verify fails (exit code 2); added files, missing files and an edited manifest also fail |
 
-### Tests: 333 passing, no network
+### Tests: 525 passing, no network
 
-| Area | Files | Tests |
-|---|---|---|
-| Watch + Revert | `test_cli`, `test_client_snapshot`, `test_diff_ledger`, `test_policy`, `test_revert_alerts`, `test_scenarios` | 111 |
-| MCP proxy | `test_mock_ads_mcp`, `test_proxy_scenarios`, `test_proxy_policy`, `test_proxy_failclosed`, `test_proxy_approvals`, `test_proxy_audit_mcp` | 117 |
-| Creative Check + evidence | `test_creative_scenarios`, `test_creative_rules`, `test_creative_watch`, `test_evidence` | 105 |
-| **Total** | | **333** |
+| Area | Tests |
+|---|---|
+| Watch + Revert | 111 |
+| MCP proxy | 118 |
+| Creative Check + evidence | 105 |
+| HTTP downstream, HTTP mock, redaction (`test_downstream_http`) | 34 |
+| Discovery (`test_discover`) | 18 |
+| Preflight (`test_preflight`) | 18 |
+| Refit to the real tool shapes, `proxy_call.py` (`test_proxy_refit`) | 57 |
+| Downstream error detail and execution outcomes (`test_downstream_detail`) | 35 |
+| Publish flags, draft tagging and the draft lifecycle (`test_phase7_publish`) | 29 |
+| **Total** | **525** |
 
 The read-only Marketing API client is tested with `httpx.MockTransport`. MCP is tested with in-memory sessions and a
-local stdio subprocess. CI runs the suite and all four demos on Python 3.12 / Ubuntu
+local stdio subprocess; the HTTP path against local servers on 127.0.0.1 with the dummy token `test-token-not-real`.
+CI runs the suite and all five demos on Python 3.12 / Ubuntu (HTTP ones against 127.0.0.1 only)
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 ## Policy examples
@@ -199,7 +242,7 @@ from declared application or actor IDs in the `attribution` section; anything un
 
 ```
 Before execution (proxy)
-  AI agent --MCP stdio--> Rein proxy --------------------------> mock Ads MCP (in memory)
+  AI agent --MCP stdio--> Rein proxy --stdio or HTTP-----------> Ads MCP (mock in tests; Meta's endpoint when configured)
                           interpret call, read current value      only "allow" and approved
                           policy -> allow / approval / deny        calls are forwarded
                               |
@@ -226,23 +269,35 @@ Evidence
 | [src/rein/ledger.py](src/rein/ledger.py) | SQLite ledger: snapshots, changes, alerts, revert runs, proxy audit, approvals, creative originals and checks |
 | [src/rein/policy.py](src/rein/policy.py) | Loads `policy.yaml` and evaluates rules for Watch and for the proxy |
 | [src/rein/revert.py](src/rein/revert.py), [alerts.py](src/rein/alerts.py), [pipeline.py](src/rein/pipeline.py) | Revert planning (execution refuses anything but the mock), alert sinks, ingest and check |
-| [src/rein/proxy.py](src/rein/proxy.py), [mock_ads_mcp.py](src/rein/mock_ads_mcp.py) | MCP proxy (stdio server) and the mock downstream. Tool names follow Meta's published Ads MCP tool list; argument shapes are Rein's assumptions |
+| [src/rein/proxy.py](src/rein/proxy.py), [mock_ads_mcp.py](src/rein/mock_ads_mcp.py) | MCP proxy (stdio server) and the mock downstream. Argument names and required lists follow the real tools/list (`discover-live.json`); types, enums and nested shapes are not published and are interpreted conservatively |
+| [src/rein/downstream_http.py](src/rein/downstream_http.py), [mock_ads_mcp_http.py](src/rein/mock_ads_mcp_http.py) | HTTP downstream (official SDK streamable-HTTP client, Bearer token from `REIN_ADS_MCP_TOKEN`, failure classes, redaction) and the same mock served over HTTP on 127.0.0.1 |
+| [src/rein/discover.py](src/rein/discover.py) | `rein proxy discover`: tools/list only, schema-fit report |
+| [src/rein/preflight.py](src/rein/preflight.py) | `rein preflight`: offline configuration check for the read-only client; `--live` is the owner's later step |
 | [src/rein/creative.py](src/rein/creative.py) | Creative Check: originals registry, lineage matching, diff, claims, rules, score, Watch integration |
 | [src/rein/evidence.py](src/rein/evidence.py) | Evidence pack export and verify |
-| [src/rein/cli.py](src/rein/cli.py) | `rein snapshot · feed · check · revert · proxy · approvals · audit · creative · evidence` |
+| [src/rein/cli.py](src/rein/cli.py) | `rein snapshot · feed · check · revert · proxy [discover] · approvals · audit · creative · evidence · preflight` |
 
-More detail (CLI, ledger columns, attribution rules, evidence pack files, how Rein departs from the official
-documentation) is in [docs/reference.md](docs/reference.md).
+More detail (CLI, ledger columns, attribution rules, evidence pack files, the HTTP downstream, discovery, preflight,
+how Rein departs from the official documentation) is in [docs/reference.md](docs/reference.md). The owner's
+checklist for a first real (test) account is [docs/real-account-setup.md](docs/real-account-setup.md).
 
 ## Limitations
 
-- **Not connected to a real account.** Everything is tested on fixtures and a mock Ads MCP server. Real use needs
-  an HTTP downstream for the real Ads MCP (OAuth or Bearer), the right permissions (`ads_read` / `ads_management`, plus
-  what Meta requires for Ads MCP access), App Review and business verification. The proxy's call interpretation must
-  also be fitted to the real `tools/list` schemas, and the real activity history may show proxied changes differently
-  from the fixtures.
-- **Writes to real accounts are disabled by design.** The real client has no write methods; revert execution refuses
-  anything but the mock client.
+- **One test account, one live sequence.** The live run (2026-10-31 and 2026-11-01) covered discovery, reads, two
+  governed campaign creations and one governed activation, on one empty test account. Updates, ad sets, ads and
+  creatives have not been run live. The interpreter is fitted to the real argument names but not to their types. A
+  creation through the Ads MCP returned a draft that did not become an account entity until a governed activation
+  with `publish_as_active: true` published it; Ads Manager and the account-level listing still did not list it at
+  the last check, and the cause is unproven. Real use on client accounts needs `ads_management`, business
+  verification and App Review, which have not been requested.
+- **What can write.** The read-only Marketing API client has no write methods, and revert execution refuses anything
+  but the mock client. The proxy, by design, forwards allowed and approved calls to its configured downstream; with
+  `--downstream http` that can be Meta's endpoint. An `executed` approval means the server accepted the call, not
+  that an object exists: follow writes with verification reads.
+- **Attribution is measured for one kind of change only.** For a change carried by Rein's app and its system user,
+  the activity log named that system user and app (one publish, 2026-11-01). Changes by Meta's own AI features, by
+  people in Ads Manager or by other apps were not measured, and Watch keeps a change `unknown` until its app or
+  actor is declared in the policy.
 - **Self-declared identities.** The agent's name comes from MCP `clientInfo` and is recorded as declared, not
   verified. Approvers and the people who register creative originals are self-declared too. There is no approval UI
   and no approver authentication.

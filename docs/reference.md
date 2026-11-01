@@ -95,8 +95,197 @@ evaluated is not alerted again unless `check --all` is used.
 rein --db rein.db proxy --policy configs/policy.proxy.example.yaml --mock-fixture fixtures/base --mock-state mock_state.json
 ```
 
-The proxy is an MCP server on stdio (stdout carries MCP, logs go to stderr). Its downstream is the mock Ads MCP,
-started as a subprocess. There is no option to point it anywhere else.
+The proxy is an MCP server on stdio (stdout carries MCP, logs go to stderr). By default its downstream is the mock
+Ads MCP, started as a subprocess (`--downstream mock-stdio`, which needs `--mock-fixture`).
+
+### HTTP downstream
+
+```bash
+export REIN_ADS_MCP_TOKEN=...   # see docs/real-account-setup.md for a way that keeps it out of shell history
+rein --db rein.db proxy --policy configs/policy.proxy.example.yaml --downstream http --downstream-url <endpoint URL>
+```
+
+- Selected with CLI flags, like the mock: `--downstream http`, `--downstream-url`, `--downstream-timeout` (seconds
+  per operation, default 30). The same flags work on `rein approvals approve` and `rein proxy discover`. The policy
+  file is unchanged. No URL is built into the code; Meta's documented endpoint (`https://mcp.facebook.com/ads`)
+  appears only in docs.
+- URL rules: https for any host, plain http only for loopback (the local mock), no credentials in the URL.
+- Transport: the official MCP Python SDK's streamable-HTTP client (`streamable_http_client` with an
+  `httpx.AsyncClient` carrying `Authorization: Bearer <token>`). Each downstream operation (one current-value lookup,
+  one forwarded call, one `tools/list`) is its own MCP session: connect, `initialize`, one request, close.
+  `Mcp-Session-Id` and protocol-version negotiation are handled by the SDK; Rein keeps no session state.
+- Token: read only from `REIN_ADS_MCP_TOKEN`. If it is unset or empty, the proxy refuses to start with an error that
+  names the variable and never a value. The token is kept in a closure (not in object attributes), never placed in
+  audit rows, results or errors, and a log-record scrubber removes it if any library ever logs it.
+- Failures are reduced to a class, recorded in the audit, and handled like the stdio path's failures:
+
+  | Failure class | Cause |
+  |---|---|
+  | `unreachable` | connection refused / reset |
+  | `unauthorized (401)` / `forbidden (403)` | the endpoint rejected the token |
+  | `http_status (<code>)` | any other non-2xx status |
+  | `timeout` | no answer within `--downstream-timeout` |
+  | `malformed` | unparseable JSON, unexpected content type |
+  | `protocol_error` / `error` | MCP-level error, anything else |
+
+  A current-value lookup that fails makes a write `require_approval` (`rein:current-unavailable` plus
+  `rein:downstream-failure: <class>`), never allow. A forwarded call that fails is audited with `downstream_ok = 0`
+  and `result_summary = "downstream error: <class>"`; nothing is retried. At approval time, a failed re-check aborts
+  the approval.
+
+**Failure detail (Phase 5D).** Next to its class, every HTTP downstream failure keeps the server's own words as
+`detail`. For an MCP / JSON-RPC error that is its code and message; for an HTTP error, the status, any
+`www-authenticate` challenge and the body; for anything else, the exception text. `detail` is diagnostic only: it
+never changes a decision or a failure class. It is one line, at most 500 characters, with the exact token and any
+`Bearer <...>` value replaced by `[redacted]` before it is stored or printed. Results the server returns are
+token-scrubbed the same way. Where it appears:
+
+- **A forwarded call that fails:** the result text stays `downstream error: <class>`, the result carries
+  `structuredContent.rein_downstream = {"failure", "detail"}`, and the audit row gets a `rein:downstream-failure`
+  reason with `detail`.
+- **A lookup that fails:** the `rein:downstream-failure` reason carries `detail`, and the deny or approval payload
+  has `downstream_detail`.
+- **`scripts/proxy_call.py`:** its JSON output has a `downstream_detail` key.
+
+**Execution results (Phase 5D).** When `rein approvals approve` runs a queued call, what the downstream answered
+is stored on the approval (`result.detail`), written to the audit row's `result_summary`, and printed by the CLI
+(`downstream: ...`). The outcome is decided from the answer, not from transport success:
+
+| Outcome | When |
+|---|---|
+| `executed` | the answer is a normal result (for example a created object's id) |
+| `execution_failed` | the answer is flagged `isError`; or its structured content, or its text parsed as JSON, has a non-empty `error` / `errors` field or `success: false`; or its text starts with `error:`, `failed:` or `failure:` |
+| `failed` | the call never got an answer (unreachable, 401, timeout, ...) |
+
+Detection is deliberately narrow: ids, status fields and `success: true` never trip it. An empty answer stays
+`executed`, with detail `(no text or structured content in the response ...)`, so check it before trusting it.
+`execution_failed` and `failed` approvals are consumed: there is no retry and no re-approval, and trying again
+needs a fresh call and a fresh approval. Ledgers created before this change get the new status through a table
+rebuild that copies every row unchanged.
+
+**Draft publication (Phase 7).**
+
+- `ads_activate_entity` accepts `publish_as_active` and `allow_partial_publish` as literal booleans only; any
+  other type is denied.
+- With `publish_as_active: true` the call always needs approval (rule `publish-needs-approval`). A deny from
+  another rule still wins. `allow_partial_publish` alone changes nothing.
+- Lookups read both `{"data": [...]}` and the real server's `{"ad_entities": "<JSON list>", "additional_info": ...}`.
+  When the server says an activation target is not an account entity (for example a draft), the call queues with
+  `rein:target-not-entity` and the server's words as its detail. Updates of such IDs, and IDs the server says
+  nothing about, stay denied.
+- An executed create whose answer has top-level `status: "DRAFT"` is tagged `created_draft` (column
+  `result_kind`) on the approval and audit rows, and shown by `approvals list`, `approvals approve` and `audit`.
+  Reporting only.
+- `discard_draft_changes` and `confirmation_token` on `ads_update_entity` stay uninterpretable.
+
+The HTTP mock (`python -m rein.mock_ads_mcp_http --fixture fixtures/base [--state mock_state.json] [--port 8765]`)
+serves the same tools on `http://127.0.0.1:<port>/mcp`. It accepts any non-empty Bearer value and answers 401
+without one. `--fault` (repeatable) simulates failures; none of the messages is Meta's real wording:
+
+- `jsonrpc-errors`: tool errors come back as JSON-RPC errors.
+- `write-iserror`: writes answer `isError: true` with an error message.
+- `write-error-body`: writes answer a transport-successful result whose content is `{"error": ...}`.
+- `echo-token`: every call fails with an error that echoes the Authorization header.
+
+`--draft-lifecycle` (both mocks) models the Phase 5 behaviour:
+- campaign creates answer DRAFT descriptors that are not entities;
+- activating a draft fails unless `publish_as_active: true` is given;
+- publishing turns the draft into a PAUSED campaign and adds an activity-log entry.
+
+### Discovery (`rein proxy discover`)
+
+```bash
+rein proxy discover --policy configs/policy.proxy.example.yaml --mock-fixture fixtures/base
+rein proxy discover --policy configs/policy.proxy.example.yaml --downstream http --downstream-url <URL> --json --out report.json
+rein proxy discover --policy configs/policy.proxy.example.yaml --tools-file fixtures/discovery/assumed_tools_list.json
+```
+
+Discovery sends `initialize` and `tools/list` and nothing else. Its connections use a session class that raises on
+any other request, `tools/call` included, before it leaves the process. The JSON report (sorted keys, no timestamps,
+so the same input gives the same bytes) lists per tool:
+
+- how the proxy treats it and by which rule: `passthrough` (listed in `proxy.read_tools`), `evaluated` (a known
+  write tool with an interpreter) or `denied` (anything else, fail-closed);
+- whether the interpreter has an argument mapping (`ASSUMED_ARGUMENTS` in `proxy.py`, the same table the
+  interpreter uses);
+- the downstream's annotations, shown as hints only;
+- gaps: `write_without_mapping`, `read_hint_not_allowlisted`, `allowlisted_but_hints_write`,
+  `schema_fields_not_in_rein`, `rein_fields_not_in_schema`, `schema_requires_unknown_to_rein`,
+  `rein_requires_not_required_by_schema`, `update_fields_not_in_rein`, `rein_update_fields_not_in_schema`,
+  `lookup_args_not_in_schema`, `lookup_omits_required_args`, `schema_missing`.
+
+The report never holds credentials: endpoints are reduced to scheme, host, port and path, and the text is scrubbed
+for the token. `fixtures/discovery/assumed_tools_list.json` is test material with assumed shapes, not a capture.
+
+### Preflight (`rein preflight`)
+
+```bash
+rein preflight --account act_<digits>          # offline
+rein preflight --account act_<digits> --live   # the owner's later step: read-only GETs
+```
+
+Offline it checks that `REIN_META_ACCESS_TOKEN` (the variable the read-only client already uses) is set, shown only
+as present or absent and its length; that the account has the form `act_<digits>`; and that `REIN_META_API_VERSION`,
+if set, looks like `vNN.N`. It also reports whether `REIN_ADS_MCP_TOKEN` is set, for information. Exit code 0 means
+ready, 1 means not. `--live` runs only after the offline checks pass and lists the account's campaigns through the
+existing read-only client (GET only).
+
+### Real tool shapes (refit, Phase 5C)
+
+The interpreter follows the tool names, property names and required lists in
+[discover-live.json](../discover-live.json), the read-only discovery report from Meta's Ads MCP (server
+"Meta Ads MCP Server" 1.0.0, 98 tools). That report records names only, not types, enum values or nested shapes, so
+those parts are interpreted conservatively.
+
+- **Account:** every write takes `ad_account_id` (`act_<digits>` or `<digits>`), normalised internally to
+  `act_<digits>`. Lookups send it exactly as the agent wrote it.
+- **Agent metadata:** `advertiser_job`, `advertiser_request`, `client_conversation_id` and `scheduled_task_run`
+  appear on nearly every real tool. They are accepted, forwarded unchanged, kept in the audit's argument summary
+  and hash like any argument, and never used for a decision.
+- **Unknown arguments, including declared optionals:** a write is interpreted only when every other argument is
+  one Rein interprets or one of the declared benign optionals (`adlabels`, which cannot change spend, delivery,
+  targeting, destination or content). Anything else, even when the real schema declares it, makes the call
+  uninterpretable, and it is denied. The discovery report lists these arguments per tool as
+  `schema_fields_not_in_rein`; each one needs a review before it is accepted.
+- **`entity_type`:** required on updates and activations. Rein reads `campaign`, `adset`, `ad_set` and `ad` in any
+  case; anything else is denied.
+- **`ads_update_entity` without `fields`:** valid per the real schema, but there is no change to judge and Rein
+  cannot see what the downstream will do, so it is `require_approval` (`rein:no-field-changes`). The target must
+  still exist.
+- **`ads_create_campaign`:** `campaign_name`, `objective`, `buying_type`. Budget rules evaluate
+  `campaign_daily_budget` / `campaign_lifetime_budget` / `campaign_spend_cap` as the entity's daily, lifetime and
+  spend-cap budgets.
+- **`ads_create_ad_set`:** `ad_set_name`, `campaign_id`, `optimization_goal`, `billing_event`, `targeting`
+  (required, an object), plus budgets, `bid_amount`, `start_time`, `end_time`.
+- **`ads_create_ad`:** `ad_name`, `ad_set_id`, and `creative`. The one nested form Rein reads is a reference,
+  `{"creative_id": "<id>"}`: the creative is looked up and its link and text are checked like a swap. Without
+  `creative`, or with any other shape (an inline spec, extra keys), the call is `require_approval`
+  (`rein:creative-not-resolved`), never allow.
+- **`ads_create_creative`:** only `ad_account_id` is required. Rein reads `link_url`, `message` / `primary_texts`,
+  `headline` / `headlines`, `description` / `descriptions`, `call_to_action_type`, `name`, `page_id` and
+  `image_hash`. Single texts map to `object_story_spec.link_data`. When any text has several variants, all of them
+  go to `asset_feed_spec`, so text rules and claim extraction see every variant.
+- **Current-value lookups:** `ads_get_ad_entities` with `{ad_account_id, object_ids, fields}` and
+  `ads_get_creatives` with `{creative_ids, fields}` (plus `ad_account_id` when known). `level` is not sent: the
+  report does not give its allowed values, and the entity type is already known from the call. `fields` lists the
+  values Rein compares; its exact type in the real schema is unknown, and a failed lookup means approval, never
+  allow.
+- **Read allowlist:** in addition to the original three reads, `ads_account_get_activity_logs`,
+  `ads_get_ad_images`, `ads_get_ad_videos`, `ads_get_custom_audience`, `ads_get_ad_account_pages` and
+  `ads_get_ig_accounts` pass through, after their schemas were reviewed (see the comment in the policy file). The
+  other 47 read-looking tools and the 36 writes without an interpreter are denied.
+
+`rein proxy discover --tools-file` also accepts a saved discovery report, so the refit can be re-checked offline:
+
+```bash
+rein proxy discover --policy configs/policy.proxy.example.yaml --tools-file discover-live.json
+```
+
+Classified downstream failures (for example `unauthorized (401)`) are printed as one line,
+`error: downstream failure: <class> (nothing was executed)`, with exit code 1.
+
+`scripts/proxy_call.py` sends one tool call through a `rein proxy` child process, as an MCP client, and prints the
+decision. It refuses tools outside `proxy.read_tools` unless `--allow-write` is given.
 
 ### Decisions
 
@@ -162,7 +351,7 @@ rein --db rein.db audit
 | `tool` / `arguments_summary` / `arguments_sha256` | Tool, a 240-character summary and the SHA-256 of the full arguments |
 | `decision` / `reasons` | Decision and the rules behind it |
 | `entity_type` / `entity_id` | Target; for creates, the ID the downstream returned |
-| `approval_id` / `forwarded` / `downstream_ok` / `result_summary` | Link to the approval, whether it was forwarded, whether it succeeded |
+| `approval_id` / `forwarded` / `downstream_ok` / `result_summary` | Link to the approval, whether it was forwarded, whether it succeeded (on failure: `downstream error: <class>`) |
 
 ## Creative Check
 
@@ -248,7 +437,8 @@ Where Meta's documentation and the original design brief disagreed, the document
   Creates are made PAUSED, as that page describes. The argument shapes are Rein's assumptions.
 - **Transport.** The real Ads MCP is served over HTTP
   ([Get started](https://developers.facebook.com/documentation/ads-commerce/ads-ai-connectors/ads-mcp-server/ads-mcp-server-get-started)).
-  This proxy is stdio only, and its downstream is the mock.
+  The proxy still serves agents over stdio. Its downstream can be streamable HTTP with a Bearer token; OAuth flows
+  are not implemented, and the HTTP path has been tested only against a local mock.
 - **Category and brand** are not Marketing API fields. `special_ad_categories` covers housing, employment, credit and
   similar categories, not industries, so Rein reads category and brand from an attributes file.
 - **Image hash** is read from `object_story_spec` (which Watch already fetches) and is not added to Watch's normalized

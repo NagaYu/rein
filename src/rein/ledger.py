@@ -92,7 +92,8 @@ CREATE TABLE IF NOT EXISTS proxy_audit (
     approval_id TEXT,
     forwarded INTEGER NOT NULL DEFAULT 0,
     downstream_ok INTEGER,
-    result_summary TEXT
+    result_summary TEXT,
+    result_kind TEXT
 );
 CREATE INDEX IF NOT EXISTS proxy_audit_by_time ON proxy_audit (occurred_at, id);
 CREATE TABLE IF NOT EXISTS approvals (
@@ -106,12 +107,14 @@ CREATE TABLE IF NOT EXISTS approvals (
     precheck TEXT NOT NULL,
     entity_type TEXT,
     entity_id TEXT,
-    status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'expired', 'executed', 'aborted', 'failed')),
+    status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'expired', 'executed', 'aborted', 'failed',
+                                           'execution_failed')),
     status_reason TEXT,
     decided_at TEXT,
     decided_by TEXT,
     executed_at TEXT,
-    result TEXT
+    result TEXT,
+    result_kind TEXT
 );
 -- Phase 3: Creative Check. Originals are what the advertiser approved; checks compare candidates to them.
 CREATE TABLE IF NOT EXISTS creative_originals (
@@ -222,6 +225,31 @@ class Ledger:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
+        self._add_missing_columns()
+        self._migrate_approval_statuses()
+
+    def _add_missing_columns(self) -> None:
+        """Phase 7: `result_kind` (e.g. created_draft) on approvals and audit rows. Older ledgers get the column
+        appended; existing rows keep NULL."""
+        for table in ("approvals", "proxy_audit"):
+            cols = {r["name"] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+            if "result_kind" not in cols:
+                with self.conn:
+                    self.conn.execute(f"ALTER TABLE {table} ADD COLUMN result_kind TEXT")
+
+    def _migrate_approval_statuses(self) -> None:
+        """Ledgers made before Phase 5D have an approvals CHECK without 'execution_failed'. Rebuild that table
+        with the current definition, copying every row unchanged (old statuses are not rewritten)."""
+        row = self.conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'approvals'").fetchone()
+        if row is None or "execution_failed" in row["sql"]:
+            return
+        start = SCHEMA.index("CREATE TABLE IF NOT EXISTS approvals")
+        create = SCHEMA[start:SCHEMA.index(";", start) + 1].replace("IF NOT EXISTS approvals", "approvals_new")
+        with self.conn:
+            self.conn.execute(create)
+            self.conn.execute("INSERT INTO approvals_new SELECT * FROM approvals")
+            self.conn.execute("DROP TABLE approvals")
+            self.conn.execute("ALTER TABLE approvals_new RENAME TO approvals")
 
     def close(self) -> None:
         self.conn.close()

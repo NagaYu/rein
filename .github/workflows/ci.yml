@@ -18,8 +18,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      # The only network use is installing dependencies. Tests and demos run on fixtures and mocks:
-      # no Meta API, no Ads MCP, no token (REIN_META_ACCESS_TOKEN is deliberately unset).
+      # The only network use is installing dependencies. Tests and demos run on fixtures and mocks
+      # (HTTP ones on 127.0.0.1 only): no Meta API, no Ads MCP, no real token. REIN_META_ACCESS_TOKEN and
+      # REIN_ADS_MCP_TOKEN are deliberately unset; tests use the dummy value test-token-not-real.
       - name: Install
         run: |
           python -m pip install --upgrade pip
@@ -34,3 +35,4 @@ jobs:
           python scripts/demo.py
           python scripts/demo_proxy.py
           python scripts/demo_evidence.py
+          python scripts/demo_http.py

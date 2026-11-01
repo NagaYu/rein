@@ -15,7 +15,7 @@ WED_1400 = "2026-10-28T05:00:00Z"
 
 def budget(value, entity_id=AS1, clock=WED_1400, policy=None):
     proxy, mock, _ = make_proxy(clock, policy=policy)
-    return decision_of(call(proxy, "ads_update_entity", {"entity_id": entity_id, "fields": {"daily_budget": value}})), mock
+    return decision_of(call(proxy, "ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": entity_id, "entity_type": "adset", "fields": {"daily_budget": value}})), mock
 
 
 # ------------------------------------------------------------------ increase ratio (5000 current, max +50%)
@@ -65,7 +65,7 @@ def test_cap_beats_ratio_and_window():
 ])
 def test_window_boundaries(clock, expected):
     proxy, mock, _ = make_proxy(clock)
-    result = call(proxy, "ads_update_entity", {"entity_id": AS2, "fields": {"status": "PAUSED"}})
+    result = call(proxy, "ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS2, "entity_type": "adset", "fields": {"status": "PAUSED"}})
     assert decision_of(result) == expected
     if expected == "require_approval":
         reason = result.structuredContent["rein"]["reasons"][0]["reason"]
@@ -74,16 +74,16 @@ def test_window_boundaries(clock, expected):
 
 def test_activation_goes_through_window_rule():
     proxy, _, _ = make_proxy("2026-10-28T18:00:00Z")
-    assert decision_of(call(proxy, "ads_activate_entity", {"entity_id": AS2})) == "require_approval"
+    assert decision_of(call(proxy, "ads_activate_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS2, "entity_type": "adset"})) == "require_approval"
     proxy, mock, _ = make_proxy(WED_1400)
-    assert decision_of(call(proxy, "ads_activate_entity", {"entity_id": AS2})) == "forwarded"
+    assert decision_of(call(proxy, "ads_activate_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS2, "entity_type": "adset"})) == "forwarded"
 
 
 # ------------------------------------------------------------------ creative swap / text
 
 
 def _creative(mock, link, message):
-    return mock.call("ads_create_creative", {"account_id": ACCOUNT, "name": "c", "link": link, "message": message,
+    return mock.call("ads_create_creative", {"ad_account_id": ACCOUNT, "name": "c", "link_url": link, "message": message,
                                              "headline": "さつまいもブレッド", "description": "Example Bakery（架空）",
                                              "call_to_action": "SHOP_NOW"})["id"]
 
@@ -91,7 +91,7 @@ def _creative(mock, link, message):
 def test_swap_to_creative_with_same_link_and_text_is_allowed():
     proxy, mock, _ = make_proxy()
     same = _creative(mock, "https://shop.example.com/autumn/satsumaimo", "ほくほくのさつまいもを練り込んだ秋のパン。")
-    result = call(proxy, "ads_update_entity", {"entity_id": AD2, "fields": {"creative_id": same}})
+    result = call(proxy, "ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AD2, "entity_type": "ad", "fields": {"creative_id": same}})
     assert decision_of(result) == "forwarded"
     assert mock.find("ad", AD2)["creative"] == {"id": same}
 
@@ -99,7 +99,7 @@ def test_swap_to_creative_with_same_link_and_text_is_allowed():
 def test_swap_with_same_link_but_banned_text_is_denied_by_terms_only():
     proxy, mock, _ = make_proxy()
     bad = _creative(mock, "https://shop.example.com/autumn/satsumaimo", "業界ＮＯ．１のさつまいもパン")
-    result = call(proxy, "ads_update_entity", {"entity_id": AD2, "fields": {"creative_id": bad}})
+    result = call(proxy, "ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AD2, "entity_type": "ad", "fields": {"creative_id": bad}})
     assert decision_of(result) == "deny"
     assert {r["rule_id"] for r in result.structuredContent["rein"]["reasons"]} == {"banned-claims"}
 
@@ -107,28 +107,28 @@ def test_swap_with_same_link_but_banned_text_is_denied_by_terms_only():
 def test_create_ad_with_banned_creative_is_denied():
     proxy, mock, _ = make_proxy()
     bad = _creative(mock, "https://shop.example.com/x", "絶対おいしい")
-    result = call(proxy, "ads_create_ad", {"account_id": ACCOUNT, "adset_id": AS1, "name": "a", "creative_id": bad})
+    result = call(proxy, "ads_create_ad", {"ad_account_id": ACCOUNT, "ad_set_id": AS1, "ad_name": "a", "creative": {"creative_id": bad}})
     assert decision_of(result) == "deny"
 
 
 def test_create_clean_creative_and_ad_set_are_allowed():
     proxy, mock, _ = make_proxy()
-    r = call(proxy, "ads_create_creative", {"account_id": ACCOUNT, "name": "ok", "link": "https://shop.example.com/x",
+    r = call(proxy, "ads_create_creative", {"ad_account_id": ACCOUNT, "name": "ok", "link_url": "https://shop.example.com/x",
                                             "message": "焼きたてのパン"})
     assert decision_of(r) == "forwarded"
-    r = call(proxy, "ads_create_ad_set", {"account_id": ACCOUNT, "campaign_id": "120000000000000101", "name": "s",
+    r = call(proxy, "ads_create_ad_set", {"ad_account_id": ACCOUNT, "campaign_id": "120000000000000101", "ad_set_name": "s",
                                           "optimization_goal": "REACH", "billing_event": "IMPRESSIONS",
-                                          "daily_budget": 20000})
+                                          "targeting": {"geo_locations": {"countries": ["JP"]}}, "daily_budget": 20000})
     assert decision_of(r) == "forwarded"
-    r = call(proxy, "ads_create_ad_set", {"account_id": ACCOUNT, "campaign_id": "120000000000000101", "name": "s2",
+    r = call(proxy, "ads_create_ad_set", {"ad_account_id": ACCOUNT, "campaign_id": "120000000000000101", "ad_set_name": "s2",
                                           "optimization_goal": "REACH", "billing_event": "IMPRESSIONS",
-                                          "daily_budget": 20001})
+                                          "targeting": {"geo_locations": {"countries": ["JP"]}}, "daily_budget": 20001})
     assert decision_of(r) == "deny"
 
 
 def test_campaign_create_over_cap_is_denied_not_queued():
     proxy, _, _ = make_proxy()
-    r = call(proxy, "ads_create_campaign", {"account_id": ACCOUNT, "name": "x", "objective": "OUTCOME_SALES",
+    r = call(proxy, "ads_create_campaign", {"ad_account_id": ACCOUNT, "buying_type": "AUCTION", "campaign_name": "x", "objective": "OUTCOME_SALES",
                                             "daily_budget": 60001})
     assert decision_of(r) == "deny"
     assert proxy.ledger.list_approvals() == []
@@ -159,7 +159,7 @@ def test_ttl_is_configurable():
     raw = yaml.safe_load(PROXY_POLICY.read_text(encoding="utf-8"))
     raw["proxy"]["approval_ttl_hours"] = 2
     proxy, _, _ = make_proxy(policy=parse_policy(raw))
-    r = call(proxy, "ads_update_entity", {"entity_id": AS1, "fields": {"daily_budget": 9000}})
+    r = call(proxy, "ads_update_entity", {"ad_account_id": "act_100000000000001", "entity_id": AS1, "entity_type": "adset", "fields": {"daily_budget": 9000}})
     assert r.structuredContent["rein"]["expires_at"] == "2026-10-28T07:00:00Z"
 
 
