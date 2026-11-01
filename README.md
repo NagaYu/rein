@@ -44,7 +44,7 @@ business-owned test ad account with no payment method. No production account was
 - **Attribution:** for a change carried by Rein's app and its system user, the activity log names that system
   user and app. Changes made by Meta's own AI features were not measured.
 
-Full findings will be published with this update if approved.
+Full run-by-run findings: docs/phase5-live-findings.md.
 
 ## What it does
 
